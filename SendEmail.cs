@@ -7,29 +7,49 @@ using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using System.Net.Http;
+using System.Collections.Generic;
 
 namespace Zetill.Utils
 {
-    public static class SendEmail
+    public class SendEmail
     {
+        private readonly HttpClient httpClient;
+
+        public SendEmail(HttpClient httpClient)
+        {
+            this.httpClient = httpClient;
+        }
+
         [FunctionName("SendEmail")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
+        public async Task<IActionResult> Run(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest req,
             ILogger log)
         {
             log.LogInformation("C# HTTP trigger function processed a request.");
 
-            string name = req.Query["name"];
-
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            name = name ?? data?.name;
+            var request = JsonConvert.DeserializeObject<SendEmailRequest>(requestBody);
 
-            string responseMessage = string.IsNullOrEmpty(name)
-                ? "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response."
-                : $"Hello, {name}. This HTTP triggered function executed successfully.";
+            var hCaptchaSecret = "";
 
-            return new OkObjectResult(responseMessage);
+            IEnumerable<KeyValuePair<string, string>> hCaptchaParams = new List<KeyValuePair<string, string>>()
+            {
+                new KeyValuePair<string, string>("secret", hCaptchaSecret),
+                new KeyValuePair<string, string>("response",request.HCaptchaChallengeResponse),
+                // new KeyValuePair<string, string>("remoteip", /*Client's IP*/), // Optional.
+            };
+
+            var hCaptchaVerificationContent = new FormUrlEncodedContent(hCaptchaParams);
+            var responseFromHCaptcha = await this.httpClient.PostAsync(@"https://hcaptcha.com/siteverify", hCaptchaVerificationContent);
+
+            if(!responseFromHCaptcha.IsSuccessStatusCode){
+                return new BadRequestResult();
+            }
+
+            // TODO: Add logic to format email and call SendGrid.
+
+            return new OkObjectResult("Success");
         }
     }
 }
