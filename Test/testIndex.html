@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script>
+        function submitOnClick(ev) {
+            var requestObject = {};
+
+            Array.from(document.getElementsByTagName("input")).forEach(element => {
+                requestObject[element.name] = element.value;
+            });
+
+            var xmlhttp = new XMLHttpRequest();
+
+            xmlhttp.onreadystatechange = function () {
+                if (xmlhttp.readyState == XMLHttpRequest.DONE) {   // XMLHttpRequest.DONE == 4
+                    if (xmlhttp.status == 200) {
+                        // Done
+                        console.log("Ajax done.")
+                    }
+                    else if (xmlhttp.status == 400) {
+                        alert('There was an error 400');
+                    }
+                    else {
+                        alert('something else other than 200 was returned');
+                    }
+                }
+            };
+
+            xmlhttp.open("post", "http://localhost:7071/api/SendEmail", true);
+            xmlhttp.send(JSON.stringify(requestObject));
+        }
+
+        window.onload = function () {
+            document.getElementById("submitButton").addEventListener('click', submitOnClick, false);
+        };
+    </script>
+</head>
+
+<body>
+    <form method="POST" action="http://localhost:7071/api/SendEmail">
+        <label for="Name">Name: </label>
+        <input type="text" id="Name" name="Name" />
+        <label for="Message">Message: </label>
+        <input type="text" id="Message" name="Message" />
+        <label for="Email">Email: </label>
+        <input type="email" id="Email" name="Email" />
+        <label for="Phone">Phone: </label>
+        <input type="text" id="Phone" name="Phone" />
+
+        <input type="button" id="submitButton" value="Send" />
+    </form>
+</body>
+
+</html>

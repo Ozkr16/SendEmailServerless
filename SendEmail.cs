@@ -6,9 +6,9 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using System.Net.Http;
 using System.Collections.Generic;
+using System.Text.Json;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 using System.Net;
@@ -34,7 +34,7 @@ namespace Zetill.Utils
             log.LogInformation("C# HTTP trigger function processed a request.");
 
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync().ConfigureAwait(false);
-            var request = JsonConvert.DeserializeObject<SendEmailRequest>(requestBody);
+            var request = JsonSerializer.Deserialize<SendEmailRequest>(requestBody);
 
             var hCaptchaSecret = ""; // TODO: Read from Key Vault.
 
