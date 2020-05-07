@@ -81,7 +81,7 @@ namespace Zetill.Utils
 
 
 
-            var apiKey = Environment.GetEnvironmentVariable("NAME_OF_THE_ENVIRONMENT_VARIABLE_FOR_YOUR_SENDGRID_KEY");  // TODO: Read from Key Vault.
+            var apiKey = GetSecretWithName("SendGrid:Key");
             var sendgridClient = new SendGridClient(apiKey);
             var from = new EmailAddress(sourceEmail, sourceUserName);
 
@@ -106,12 +106,18 @@ namespace Zetill.Utils
         }
 
         public string GetSecretWithName(string secretName){
-            string keyVaultName = Environment.GetEnvironmentVariable("KEY_VAULT_NAME");
-            var kvUri = "https://" + keyVaultName + ".vault.azure.net";
-            var client = new SecretClient(new Uri(kvUri), new DefaultAzureCredential());
-            KeyVaultSecret secret = client.GetSecret(secretName);
+            string keyVaultName = Environment.GetEnvironmentVariable("KeyVaultName");
 
-            return secret.Value;
+            if(!keyVaultName.Equals("local", StringComparison.OrdinalIgnoreCase) ){
+                var kvUri = "https://" + keyVaultName + ".vault.azure.net";
+                var client = new SecretClient(new Uri(kvUri), new DefaultAzureCredential());
+                KeyVaultSecret secret = client.GetSecret(secretName);
+
+                return secret.Value;
+            }
+
+            // For local development, read secrets from secrets.json settings file.
+            return Environment.GetEnvironmentVariable(secretName);
         }
     }
 }
