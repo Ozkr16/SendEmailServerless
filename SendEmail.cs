@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
@@ -8,12 +7,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Net.Http;
 using System.Collections.Generic;
-using System.Text.Json;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 using System.Net;
-using Azure.Security.KeyVault.Secrets;
-using Azure.Identity;
 
 namespace Zetill.Utils
 {
@@ -35,25 +31,28 @@ namespace Zetill.Utils
         {
             log.LogInformation("C# HTTP trigger function processed a request.");
 
-            string requestBody;
-            SendEmailRequest request;
-            try
+            var form = await req.ReadFormAsync().ConfigureAwait(false);
+            var hasAllProperties = form.TryGetValue("name", out var name);
+            hasAllProperties &= form.TryGetValue("message", out var message);
+            hasAllProperties &= form.TryGetValue("email", out var email);
+            hasAllProperties &= form.TryGetValue("phone-number", out var phoneNumber);
+            hasAllProperties &= form.TryGetValue("h-captcha-response", out var hCaptchaResponse);
+
+            if (!hasAllProperties)
             {
-                requestBody = await new StreamReader(req.Body).ReadToEndAsync().ConfigureAwait(false);
-                request = JsonSerializer.Deserialize<SendEmailRequest>(requestBody);
-            }
-            catch (JsonException jEx)
-            {
-                log.LogError(jEx, "Unable to deserialize request object.");
-                return new BadRequestResult();
-            }
-            catch(ArgumentNullException ex)
-            {
-                log.LogError(ex, "Request object is null.");
                 return new BadRequestResult();
             }
 
-            var hCaptchaSecret = GetSecretWithName("HCaptcha:Secret");
+            SendEmailRequest request = new SendEmailRequest()
+            {
+                Name = name,
+                Message = message,
+                Email = email,
+                PhoneNumber = phoneNumber,
+                HCaptchaChallengeResponse = hCaptchaResponse,
+            };
+
+            var hCaptchaSecret = Environment.GetEnvironmentVariable("HCaptcha:Secret");
 
             IEnumerable<KeyValuePair<string, string>> hCaptchaParams = new List<KeyValuePair<string, string>>()
             {
@@ -71,17 +70,15 @@ namespace Zetill.Utils
                 return new BadRequestResult();
             }
 
-            // var sourceDomainName = Environment.GetEnvironmentVariable("Email:Sender:DomainName");
-            var sourceUserName = Environment.GetEnvironmentVariable("Email:Sender:UserName");
-            var sourceEmail = Environment.GetEnvironmentVariable("Email:Sender:Address");
+            var sourceUserName = Environment.GetEnvironmentVariable("Sender:UserName");
+            var sourceEmail = Environment.GetEnvironmentVariable("Sender:Address");
 
-            var targetDomainName = Environment.GetEnvironmentVariable("Email:Destination:DomainName");
-            var targetUserName = Environment.GetEnvironmentVariable("Email:Destination:UserName");
-            var targetEmail = Environment.GetEnvironmentVariable("Email:Destination:Address");
-
+            var targetDomainName = Environment.GetEnvironmentVariable("Destination:DomainName");
+            var targetUserName = Environment.GetEnvironmentVariable("Destination:UserName");
+            var targetEmail = Environment.GetEnvironmentVariable("Destination:Address");
 
 
-            var apiKey = GetSecretWithName("SendGrid:Key");
+            var apiKey = Environment.GetEnvironmentVariable("SendGrid:Key");
             var sendgridClient = new SendGridClient(apiKey);
             var from = new EmailAddress(sourceEmail, sourceUserName);
 
@@ -100,24 +97,11 @@ namespace Zetill.Utils
             {
                 var responseBody = await sendgridResponse.Body.ReadAsStringAsync().ConfigureAwait(false);
                 this.log.LogError($"Unable to send email. Respose from SendGrid was: {responseBody}");
+
+                return new BadRequestResult();
             }
 
             return new OkObjectResult("Success");
-        }
-
-        public string GetSecretWithName(string secretName){
-            string keyVaultName = Environment.GetEnvironmentVariable("KeyVaultName");
-
-            if(!keyVaultName.Equals("local", StringComparison.OrdinalIgnoreCase) ){
-                var kvUri = "https://" + keyVaultName + ".vault.azure.net";
-                var client = new SecretClient(new Uri(kvUri), new DefaultAzureCredential());
-                KeyVaultSecret secret = client.GetSecret(secretName);
-
-                return secret.Value;
-            }
-
-            // For local development, read secrets from secrets.json settings file.
-            return Environment.GetEnvironmentVariable(secretName);
         }
     }
 }
