@@ -2,6 +2,7 @@
 <html>
 
 <head>
+    <script src="https://hcaptcha.com/1/api.js" async defer></script>
     <script>
         function submitOnClick(ev) {
             var requestObject = {};
@@ -40,15 +41,16 @@
 <body>
     <form method="POST" action="http://localhost:7071/api/SendEmail">
         <label for="Name">Name: </label>
-        <input type="text" id="Name" name="Name" />
+        <input type="text" id="Name" name="name" />
         <label for="Message">Message: </label>
-        <input type="text" id="Message" name="Message" />
+        <input type="text" id="Message" name="message" />
         <label for="Email">Email: </label>
-        <input type="email" id="Email" name="Email" />
+        <input type="email" id="Email" name="email" />
         <label for="Phone">Phone: </label>
-        <input type="text" id="Phone" name="PhoneNumber" />
-
+        <input type="text" id="Phone" name="phone-number" />
+        <div class="h-captcha" data-sitekey="636fddec-f0a6-459c-a5bc-84d2404a5a30"></div>
         <input type="button" id="submitButton" value="Send" />
+        <input type="submit" id="submitButton2" value="Form Post" />
     </form>
 </body>
 
