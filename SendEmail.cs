@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 using System.Net;
+using System.Text;
 
 namespace Zetill.Utils
 {
@@ -85,11 +86,15 @@ namespace Zetill.Utils
             var subject = "Nuevo mensaje recibido";
             var to = new EmailAddress(targetEmail, targetUserName);
 
-            var plainTextContent = $@"Le comunicamos que ha recibido una nueva petición de contacto por medio de su sitio: {targetDomainName}."
-                                 + $@"Le mensaje fue enviado por: {request.Name} y dice lo siguiente: {request.Message}."
-                                 + $@"Información de contacto: Email: {request.Email} Número de Teléfono: {request.PhoneNumber}.";
+            var plainTextContent = "";
 
-            var htmlContent = ""; // "<strong>and easy to do anywhere, even with C#</strong>"; // TODO: Consider using HTML
+            var htmlContent = new StringBuilder(EmailTemplate.Template)
+                                .Replace("{name}", request.Name)
+                                .Replace("{email}", request.Email)
+                                .Replace("{phone}", request.PhoneNumber)
+                                .Replace("{message}", request.Message)
+                                .ToString();
+
             var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
             var sendgridResponse = await sendgridClient.SendEmailAsync(msg).ConfigureAwait(false);
 
