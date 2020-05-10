@@ -36,12 +36,13 @@ namespace Zetill.Utils
             var hasAllProperties = form.TryGetValue("name", out var name);
             hasAllProperties &= form.TryGetValue("message", out var message);
             hasAllProperties &= form.TryGetValue("email", out var email);
-            hasAllProperties &= form.TryGetValue("phone-number", out var phoneNumber);
+            hasAllProperties &= form.TryGetValue("phone", out var phoneNumber);
             hasAllProperties &= form.TryGetValue("h-captcha-response", out var hCaptchaResponse);
 
             if (!hasAllProperties)
             {
-                return new BadRequestResult();
+                log.LogWarning("Expected parameters are not present. Params: name, message, email, phone, h-captcha-response.");
+                return new BadRequestObjectResult("Expected parameters are not present. Params: name, message, email, phone, h-captcha-response");
             }
 
             SendEmailRequest request = new SendEmailRequest()
@@ -68,7 +69,7 @@ namespace Zetill.Utils
             if (!responseFromHCaptcha.IsSuccessStatusCode)
             {
                 this.log.LogWarning($"Captcha validation was unsuccessfull. Response Status Code was: {responseFromHCaptcha.StatusCode}. Reason: {responseFromHCaptcha.ReasonPhrase}");
-                return new BadRequestResult();
+                return new BadRequestObjectResult("Captcha validation was unsuccessfull.");
             }
 
             var sourceUserName = Environment.GetEnvironmentVariable("Sender:UserName");
@@ -103,7 +104,7 @@ namespace Zetill.Utils
                 var responseBody = await sendgridResponse.Body.ReadAsStringAsync().ConfigureAwait(false);
                 this.log.LogError($"Unable to send email. Respose from SendGrid was: {responseBody}");
 
-                return new BadRequestResult();
+                return new BadRequestObjectResult("Cannot send message.");
             }
 
             return new OkObjectResult("Success");
