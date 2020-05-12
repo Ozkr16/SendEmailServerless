@@ -1,7 +1,5 @@
-namespace Zetill.Utils
+namespace Zetill.Utils.Models
 {
-    using System.Text.Json.Serialization;
-
     public class SendEmailRequest
     {
         public string HCaptchaChallengeResponse { get; set; }

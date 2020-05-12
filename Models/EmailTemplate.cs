@@ -1,4 +1,4 @@
-namespace Zetill.Utils
+namespace Zetill.Utils.Models
 {
     public static class EmailTemplate
     {
