@@ -12,6 +12,7 @@ using SendGrid.Helpers.Mail;
 using System.Net;
 using System.Text;
 using Zetill.Utils.Models;
+using System.Linq;
 
 namespace Zetill.Utils
 {
@@ -32,40 +33,54 @@ namespace Zetill.Utils
             ILogger log)
         {
             log.LogInformation("C# HTTP trigger function processed a request.");
-
-            var form = await req.ReadFormAsync().ConfigureAwait(false);
-            var hasAllProperties = form.TryGetValue("name", out var name);
-            hasAllProperties &= form.TryGetValue("message", out var message);
-            hasAllProperties &= form.TryGetValue("email", out var email);
-            hasAllProperties &= form.TryGetValue("phone", out var phoneNumber);
-            hasAllProperties &= form.TryGetValue("h-captcha-response", out var hCaptchaResponse);
-
-            if (!hasAllProperties)
-            {
-                log.LogWarning("Expected parameters are not present. Params: name, message, email, phone, h-captcha-response.");
-                return new BadRequestObjectResult("Expected parameters are not present. Params: name, message, email, phone, h-captcha-response");
+            
+            var separator = Environment.GetEnvironmentVariable("Mail:ParameterSeparatorChar");
+            if(string.IsNullOrWhiteSpace(separator) || separator.Length > 1){
+                log.LogWarning("Provided separator was invalid, falling back to default comma separator.");
+                separator = ","; // Invalid operator fallsback to comma.
             }
 
-            SendEmailRequest request = new SendEmailRequest()
+            var expectedParameters = Environment.GetEnvironmentVariable("Mail:ExpectedParameters")?.Split(separator);
+            if(expectedParameters == null || !expectedParameters.Any()){
+                log.LogInformation("There we no expected parameters. Assuming that's ok if email to send is too generic.");
+            }
+
+
+            var form = await req.ReadFormAsync().ConfigureAwait(false);
+
+            var htmlContentBuilder = new StringBuilder(EmailTemplate.Template);
+            foreach (var expectedParameter in expectedParameters)
             {
-                Name = name,
-                Message = message,
-                Email = email,
-                PhoneNumber = phoneNumber,
-                HCaptchaChallengeResponse = hCaptchaResponse,
-            };
+                if(form.TryGetValue(expectedParameter, out var parameterValue)){
+                    htmlContentBuilder.Replace("{" + expectedParameter + "}", parameterValue);
+                }else{
+                    this.log.LogError($"Expected parameter was not found in request. Param: {expectedParameter}");
+                    return new BadRequestObjectResult("Missing parameters.");
+                }
+            }
+            var hCaptchaResponseWasProvided = form.TryGetValue("h-captcha-response", out var hCaptchaChallengeResponse);
+            if (!hCaptchaResponseWasProvided)
+            {
+                log.LogWarning("h-captcha-response was not provided.");
+                return new BadRequestObjectResult("HCaptcha challenge response was not provided.");
+            }
 
             var hCaptchaSecret = Environment.GetEnvironmentVariable("HCaptcha:Secret");
+            var hCaptchaVerificationEndpoint = Environment.GetEnvironmentVariable("HCaptcha:VerificationEndpoint"); // @"https://hcaptcha.com/siteverify"
+            if(string.IsNullOrWhiteSpace(hCaptchaSecret) || string.IsNullOrWhiteSpace(hCaptchaVerificationEndpoint)){
+                log.LogError("HCaptcha secret or verification url were not properly set or cannot be retrieved.");
+                return new StatusCodeResult(500);
+            }
 
             IEnumerable<KeyValuePair<string, string>> hCaptchaParams = new List<KeyValuePair<string, string>>()
             {
                 new KeyValuePair<string, string>("secret", hCaptchaSecret),
-                new KeyValuePair<string, string>("response",request.HCaptchaChallengeResponse),
+                new KeyValuePair<string, string>("response",hCaptchaChallengeResponse),
                 // new KeyValuePair<string, string>("remoteip", /*Client's IP*/), // Optional.
             };
 
             var hCaptchaVerificationContent = new FormUrlEncodedContent(hCaptchaParams);
-            var responseFromHCaptcha = await this.httpClient.PostAsync(@"https://hcaptcha.com/siteverify", hCaptchaVerificationContent).ConfigureAwait(false);
+            var responseFromHCaptcha = await this.httpClient.PostAsync(hCaptchaVerificationEndpoint, hCaptchaVerificationContent).ConfigureAwait(false);
 
             if (!responseFromHCaptcha.IsSuccessStatusCode)
             {
@@ -75,29 +90,37 @@ namespace Zetill.Utils
 
             var sourceUserName = Environment.GetEnvironmentVariable("Sender:UserName");
             var sourceEmail = Environment.GetEnvironmentVariable("Sender:Address");
-
             var targetDomainName = Environment.GetEnvironmentVariable("Destination:DomainName");
             var targetUserName = Environment.GetEnvironmentVariable("Destination:UserName");
             var targetEmail = Environment.GetEnvironmentVariable("Destination:Address");
+            var emailSubject = Environment.GetEnvironmentVariable("Mail:Subject");
 
+            var hasInvalidConfig = 
+               string.IsNullOrWhiteSpace(sourceUserName)
+            || string.IsNullOrWhiteSpace(sourceEmail)
+            || string.IsNullOrWhiteSpace(targetDomainName)
+            || string.IsNullOrWhiteSpace(targetUserName)
+            || string.IsNullOrWhiteSpace(targetEmail)
+            || string.IsNullOrWhiteSpace(emailSubject);
 
-            var apiKey = Environment.GetEnvironmentVariable("SendGrid:Key");
-            var sendgridClient = new SendGridClient(apiKey);
+            if(hasInvalidConfig){
+                log.LogError("Email configuration was not properly set or cannot be retrieved.");
+                return new StatusCodeResult(500);
+            }
+
             var from = new EmailAddress(sourceEmail, sourceUserName);
-
-            var subject = "Nuevo mensaje recibido";
             var to = new EmailAddress(targetEmail, targetUserName);
 
             var plainTextContent = "";
 
-            var htmlContent = new StringBuilder(EmailTemplate.Template)
-                                .Replace("{name}", request.Name)
-                                .Replace("{email}", request.Email)
-                                .Replace("{phone}", request.PhoneNumber)
-                                .Replace("{message}", request.Message)
-                                .ToString();
+            var msg = MailHelper.CreateSingleEmail(from, to, emailSubject, plainTextContent, htmlContentBuilder.ToString());
 
-            var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
+            var apiKey = Environment.GetEnvironmentVariable("SendGrid:Key");
+            if (string.IsNullOrWhiteSpace(apiKey)){
+                log.LogError("Sendgrid config was not properly set.");
+                return new StatusCodeResult(500);
+            }
+            var sendgridClient = new SendGridClient(apiKey);
             var sendgridResponse = await sendgridClient.SendEmailAsync(msg).ConfigureAwait(false);
 
             if (sendgridResponse.StatusCode != HttpStatusCode.Accepted)
