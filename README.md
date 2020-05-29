@@ -12,6 +12,9 @@ To be able to run the function locally, make sure you have a local.settings.json
     "AzureWebJobsStorage": "",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet",
     "KeyVaultName":"local",
+    "Mail:ParameterSeparatorChar": ",",
+    "Mail:ExpectedParameters" :"<comma-separated-params-expected-in-request-and-replaced-in-email-template>", // sample: name,message,email,phone",
+    "Mail:Subject" : "<email-subject>",
     "Sender:DomainName" : "<from-address-domain>",
     "Sender:UserName" : "<from-address-friendly-name>",
     "Sender:Address" : "<from-address>",
@@ -19,6 +22,7 @@ To be able to run the function locally, make sure you have a local.settings.json
     "Destination:UserName" : "<to-address-friendly-name>",
     "Destination:Address" : "<to-address>",
     "HCaptcha:Secret": "<HCaptcha-provided-secret>",
+    "HCaptcha:VerificationEndpoint" : "<hchaptcha-verification-endpoint-url>", // https://hcaptcha.com/siteverify",
     "SendGrid:Key": "<SendGrid-provided-key>"
   }
 }
