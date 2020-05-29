@@ -43,3 +43,9 @@ The entry should look like:
 ```hosts
 127.0.0.1   serverless.com
 ```
+
+## Email Template
+
+- Generated with: https://stripo.email/
+- Minified with: https://minify-html.com
+- Escaped with: https://www.csharpescaper.com
