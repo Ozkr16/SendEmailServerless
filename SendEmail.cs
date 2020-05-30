@@ -11,7 +11,6 @@ using SendGrid;
 using SendGrid.Helpers.Mail;
 using System.Net;
 using System.Text;
-using Zetill.Utils.Models;
 using System.Linq;
 
 namespace Zetill.Utils
