@@ -21,6 +21,10 @@ namespace Zetill.Utils
         private readonly HttpClient httpClient;
         private readonly ILogger<SendEmail> log;
 
+        // This works as a memory cache. If the function instance is idle for 5 min or more
+        // it will be destroyed, then the "cache" will be cleared.
+        private static string internalTemplate;
+
         public SendEmail(HttpClient httpClient, ILogger<SendEmail> log)
         {
             this.httpClient = httpClient;
@@ -48,7 +52,13 @@ namespace Zetill.Utils
 
             var form = await req.ReadFormAsync().ConfigureAwait(false);
 
-            var htmlContentBuilder = new StringBuilder(EmailTemplate.Template);
+            if(internalTemplate == null )
+            {
+                var url = Environment.GetEnvironmentVariable("Mail:TemplateLocationUrl");
+                internalTemplate = await this.httpClient.GetStringAsync(url).ConfigureAwait(false);
+            }
+
+            var htmlContentBuilder = new StringBuilder(internalTemplate);
             foreach (var expectedParameter in expectedParameters)
             {
                 if(form.TryGetValue(expectedParameter, out var parameterValue)){

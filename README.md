@@ -14,6 +14,7 @@ To be able to run the function locally, make sure you have a local.settings.json
     "KeyVaultName":"local",
     "Mail:ParameterSeparatorChar": ",",
     "Mail:ExpectedParameters" :"<comma-separated-params-expected-in-request-and-replaced-in-email-template>", // sample: name,message,email,phone",
+    "Mail:TemplateLocationUrl": "<url>",
     "Mail:Subject" : "<email-subject>",
     "Sender:DomainName" : "<from-address-domain>",
     "Sender:UserName" : "<from-address-friendly-name>",
