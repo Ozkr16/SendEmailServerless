@@ -124,6 +124,28 @@ namespace Zetill.Utils
 
             var msg = MailHelper.CreateSingleEmail(from, to, emailSubject, plainTextContent, htmlContentBuilder.ToString());
 
+            var fileNames = Environment.GetEnvironmentVariable("Mail:ExpectedFiles")?.Split(separator);
+            if(fileNames != null && fileNames.Length > 0)
+            {
+                var taskCollection = new List<Task>();
+                foreach (var file in req.Form.Files.Where(f => fileNames.Any(ef => ef.Equals(f.Name, StringComparison.OrdinalIgnoreCase))))
+                {
+                    var fileExtension = TranslateContentTypeIntoExtension(file.ContentType);
+                    if(!string.IsNullOrWhiteSpace(fileExtension))
+                    {
+                        var fileUploadStream = file.OpenReadStream();
+                        var task = msg.AddAttachmentAsync($"{file.Name}.{fileExtension}", fileUploadStream, file.ContentType);
+                        taskCollection.Add(task);
+                    }
+                    else
+                    {
+                        log.LogWarning("User tried to upload an unsupported file type.");
+                        return new BadRequestObjectResult("Invalid file type.");
+                    }
+                }
+                await Task.WhenAll(taskCollection);
+            }
+
             var apiKey = Environment.GetEnvironmentVariable("SendGrid:Key");
             if (string.IsNullOrWhiteSpace(apiKey)){
                 log.LogError("Sendgrid config was not properly set.");
@@ -141,6 +163,29 @@ namespace Zetill.Utils
             }
 
             return new OkObjectResult("Success");
+        }
+
+        private string TranslateContentTypeIntoExtension(string contentType)
+        {
+            switch (contentType)
+            {
+                case "application/msword":
+                return "doc";
+                case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                return "docx";
+                case "image/jpeg":
+                return "jpg";
+                case "image/png":
+                return "png";
+                case "application/pdf":
+                return "pdf";
+                case "application/vnd.ms-excel":
+                return "xls";
+                case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+                return "xlsx";
+                default:
+                return null;
+            }
         }
     }
 }

@@ -6,7 +6,7 @@
 </head>
 
 <body>
-    <form method="POST" action="http://localhost:7071/api/SendEmail">
+    <form method="POST" enctype="multipart/form-data" action="http://localhost:7071/api/SendEmail">
     <!-- <form method="POST" action="https://retagriemailer.azurewebsites.net/api/SendEmail"> -->
     <!-- <form method="POST" action="https://proingemailer.azurewebsites.net/api/SendEmail"> -->
         <label for="Name">Name: </label>
@@ -17,6 +17,8 @@
         <input type="email" id="Email" name="email" />
         <label for="Phone">Phone: </label>
         <input type="text" id="Phone" name="phone" />
+        <label for="document">Attachment: </label>
+        <input type="file" id="document" name="document" />
         <div class="h-captcha" data-sitekey="636fddec-f0a6-459c-a5bc-84d2404a5a30"></div>
         <input type="submit" id="submitButton" value="Send Email" />
     </form>
