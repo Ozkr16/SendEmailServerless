@@ -128,19 +128,27 @@ namespace Zetill.Utils
             if(fileNames != null && fileNames.Length > 0)
             {
                 var taskCollection = new List<Task>();
-                foreach (var file in req.Form.Files.Where(f => fileNames.Any(ef => ef.Equals(f.Name, StringComparison.OrdinalIgnoreCase))))
+
+                foreach (var fileGroup in req.Form.Files
+                .Where(f => fileNames.Any(ef => ef.Equals(f.Name, StringComparison.OrdinalIgnoreCase)))
+                .GroupBy(f => f.Name))
                 {
-                    var fileExtension = TranslateContentTypeIntoExtension(file.ContentType);
-                    if(!string.IsNullOrWhiteSpace(fileExtension))
-                    {
-                        var fileUploadStream = file.OpenReadStream();
-                        var task = msg.AddAttachmentAsync($"{file.Name}.{fileExtension}", fileUploadStream, file.ContentType);
-                        taskCollection.Add(task);
-                    }
-                    else
-                    {
-                        log.LogWarning("User tried to upload an unsupported file type.");
-                        return new BadRequestObjectResult("Invalid file type.");
+                    var counter = 1;
+                    foreach(var file in fileGroup){
+                        var fileExtension = TranslateContentTypeIntoExtension(file.ContentType);
+                        if(!string.IsNullOrWhiteSpace(fileExtension))
+                        {
+                            var fileUploadStream = file.OpenReadStream();
+                            var effectiveCounter = counter > 1 ? counter.ToString() : string.Empty;
+                            var task = msg.AddAttachmentAsync($"{file.Name}{effectiveCounter}.{fileExtension}", fileUploadStream, file.ContentType);
+                            taskCollection.Add(task);
+                        }
+                        else
+                        {
+                            log.LogWarning("User tried to upload an unsupported file type.");
+                            return new BadRequestObjectResult("Invalid file type.");
+                        }
+                        counter++;
                     }
                 }
                 await Task.WhenAll(taskCollection);
