@@ -54,7 +54,15 @@ namespace Zetill.Utils
             if(internalTemplate == null )
             {
                 var url = Environment.GetEnvironmentVariable("Mail:TemplateLocationUrl");
-                internalTemplate = await this.httpClient.GetStringAsync(url).ConfigureAwait(false);
+                try
+                {
+                    internalTemplate = await this.httpClient.GetStringAsync(url).ConfigureAwait(false);
+                }
+                catch(HttpRequestException ex)
+                {
+                    log.LogError($"Unable to get the email template from url: {url}. Exception: {ex}");
+                    return new BadRequestObjectResult("Unable to get the email template. Ask and administrator to update the configuration.");
+                }
             }
 
             var htmlContentBuilder = new StringBuilder(internalTemplate);
@@ -62,9 +70,11 @@ namespace Zetill.Utils
             {
                 if(form.TryGetValue(expectedParameter, out var parameterValue)){
                     htmlContentBuilder.Replace("{" + expectedParameter + "}", parameterValue);
-                }else{
-                    this.log.LogError($"Expected parameter was not found in request. Param: {expectedParameter}");
-                    return new BadRequestObjectResult("Missing parameters.");
+                }
+                else
+                {
+                    htmlContentBuilder.Replace("{" + expectedParameter + "}", string.Empty);
+                    this.log.LogInformation($"Expected parameter was not found in request. Using empty value instead. Param: {expectedParameter}");
                 }
             }
             var hCaptchaResponseWasProvided = form.TryGetValue("h-captcha-response", out var hCaptchaChallengeResponse);
